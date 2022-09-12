@@ -52,50 +52,14 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   qDot0(5) = vx0/0.330;
   qDot0(6) = vx0/0.330;
   
-  // Create lambdas to pass the following functions to the steady-state solver:
-
-//    auto resFunLambda = [&vehicleCorner, vehicleSpeed](const Eigen::VectorXd& q)
-//    {
-//      return vehicleCorner->get_steady_state_forces(q,vehicleSpeed);
-//    };
-
-//    auto jacobianLambda = [&vehicleCorner](const Eigen::VectorXd& q)
-//    {
-//      return vehicleCorner->get_jacobian(q);
-//    };
-
-//    auto isSuccessful = false;
-//
-//    // Call the steady-state solver:
-//    auto steadyStateSolution = RootFinding::modified_newton_solve(resFunLambda, jacobianLambda, q0,
-//                                                                  solverSettings->m_SsSolverInitialStepSize,
-//                                                                  solverSettings->m_SsSolverMaxStepSize,
-//                                                                  solverSettings->m_SsSolverMaxIterations,
-//                                                                  solverSettings->m_SsSolverTol,
-//                                                                  isSuccessful);
+ 
   
   // ------------------------------------------------------------------------------------
   // Solve the transient simulation via Newmark - beta ----------------------------------
   // ------------------------------------------------------------------------------------
   
-  // Construct the lambdas
-  auto massMatrixLambda = [&vehicle](const Eigen::VectorXd& q,
-      const Eigen::VectorXd& qDot,
-      const double time) {
-    return vehicle->get_mass_matrix();
-  };
-  
-  auto stiffnessMatrixLambda = [&input, &vehicle](const Eigen::VectorXd& q,
-      const Eigen::VectorXd& qDot,
-      const double time) {
-    return vehicle->get_stiffness_matrix(input, time, q, qDot);
-  };
-  
-  auto dampingMatrixLambda = [&input, &vehicle](const Eigen::VectorXd& q,
-      const Eigen::VectorXd& qDot,
-      const double time) {
-    return vehicle->get_damping_matrix(input, time, q, qDot);
-  };
+  // Construct the mass matrix to pass to the numerical integrator
+  Eigen::MatrixXd massMatrix = vehicle->get_mass_matrix();
   
   auto forcesLambda = [&input, &vehicle](const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot,
@@ -108,14 +72,12 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   Eigen::VectorXd time(1);
   
   q.row(0) = q0;
-//  q = q0;
-//  qDot.setZero();
   qDot.row(0) = qDot0;
   qDDot.setZero();
   
   time(0) = solverSettings->m_StartTime;
   
-  Integrators::newmark_solve(forcesLambda, massMatrixLambda, stiffnessMatrixLambda, dampingMatrixLambda,
+  Integrators::newmark_solve(forcesLambda, massMatrix, input,
       q, qDot, qDDot, time,
       solverSettings->m_EndTime,
       solverSettings->m_TransientSolverMaxStepSize,

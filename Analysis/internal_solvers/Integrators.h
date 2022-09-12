@@ -4,6 +4,7 @@
 #include "../Inputs/SimulationInput.h"
 #include <cmath>
 #include "thread"
+#include "future"
 
 class Integrators {
 public:
@@ -47,6 +48,9 @@ public:
       const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot,
       const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector);
+  
+  static Eigen::VectorXd calculate_deltaQ(const Eigen::MatrixXd& s,
+      const Eigen::VectorXd& residual);
   
 
 };

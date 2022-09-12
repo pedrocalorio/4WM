@@ -165,6 +165,16 @@ void Integrators::newmark_solve(
     q.row(nPlusOne) = q.row(n) + stepSize * qDot.row(n) + (0.5 - beta) * stepSize * stepSize * qDDot.row(n);
     
     // we use .row because it corresponds to each time instant
+  
+    std::future<Eigen::MatrixXd> Kt_mt = std::async(std::launch::async,get_stiffness_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
+  
+    std::future<Eigen::VectorXd> Fmv_mt = std::async(std::launch::async,forcesVector,q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
+  
+    Eigen::MatrixXd Ct = get_damping_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
+  
+    Eigen::MatrixXd Kt = Kt_mt.get();
+  
+    Eigen::VectorXd Fmv = Fmv_mt.get();
     
     // ------------------------------------------------------------------------------------
     // Correction with Newton-raphson -----------------------------------------------------
@@ -177,8 +187,10 @@ void Integrators::newmark_solve(
       k += 1;
       
       // Residual Vector Evaluation Mq'' + f(q',q,t) = 0
+//      residual = massMatrix * qDDot.row(nPlusOne).transpose() +
+//          forcesVector(q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
       residual = massMatrix * qDDot.row(nPlusOne).transpose() +
-          forcesVector(q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
+          Fmv;
       
       // Convergence Check
       if (residual.lpNorm<2>() < newtonTol || k > newtonMaxIterations) {
@@ -186,15 +198,20 @@ void Integrators::newmark_solve(
       }
       
       // Calculation of the Jacobian matrix
-      s = get_stiffness_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
+//      s = get_stiffness_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
+//          gamma / (beta * stepSize)
+//              * get_damping_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
+//          (1 / (beta * stepSize * stepSize)) * massMatrix;
+  
+      s = Kt +
           gamma / (beta * stepSize)
-              * get_damping_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
+              * Ct +
           (1 / (beta * stepSize * stepSize)) * massMatrix;
       
       // Calculate Newton Search Direction
-//      deltaQ = -s.inverse() * residual;
+      deltaQ = calculate_deltaQ(s,residual);
       
-      deltaQ = s.colPivHouseholderQr().solve(-residual);
+//      deltaQ = s.colPivHouseholderQr().solve(-residual);
       // There are no requirements on s matrix for colPivHouseholder to solve this with this method.
       
       // ------------------------------------------------------------------------------------
@@ -331,20 +348,17 @@ Eigen::MatrixXd Integrators::get_stiffness_matrix(const std::shared_ptr<Simulati
   Eigen::MatrixXd jacobian = Eigen::MatrixXd(nDoF, nDoF);
   
   for (int i = 0; i < nDoF; ++i) {
-//    Eigen::VectorXd x_plus_vec = X_PLUS_H.col(i).adjoint();
-//    Eigen::VectorXd x_minus_vec = X_MINUS_H.col(i).adjoint();
     
     Eigen::VectorXd F_X_PLUS_H = forcesVector(X_PLUS_H.col(i).adjoint(), qDot, time);
     Eigen::VectorXd F_X_MINUS_H = forcesVector(X_MINUS_H.col(i).adjoint(), qDot, time);
+  
+//    std::future<Eigen::VectorXd> F_X_PLUS_H_mt = std::async(std::launch::async,forcesVector,X_PLUS_H.col(i).adjoint(), qDot, time);
+//    Eigen::VectorXd F_X_MINUS_H = forcesVector(X_MINUS_H.col(i).adjoint(), qDot, time);
+//    Eigen::VectorXd F_X_PLUS_H = F_X_PLUS_H_mt.get();
 
 //    Eigen::VectorXd F_X = F_X_PLUS_H-F_X_MINUS_H;
     jacobian.col(i) = F_X_PLUS_H - F_X_MINUS_H;
-    
   }
-
-//  Eigen::MatrixXd eps_vec = 2*eps*Eigen::MatrixXd::Ones(nDoF,1).adjoint();
-//  Eigen::MatrixXd div = eps_vec.replicate(nDoF,1);
-//  Eigen::MatrixXd K = jacobian.cwiseQuotient(div);
   
   auto K = jacobian / (2 * eps);
   
@@ -371,23 +385,26 @@ Eigen::MatrixXd Integrators::get_damping_matrix(const std::shared_ptr<Simulation
   Eigen::MatrixXd jacobian = Eigen::MatrixXd(nDoF, nDoF);
   
   for (int i = 0; i < nDoF; ++i) {
-//    Eigen::VectorXd x_plus_vec = X_PLUS_H.col(i).adjoint();
-//    Eigen::VectorXd x_minus_vec = X_MINUS_H.col(i).adjoint();
     
     Eigen::VectorXd F_X_PLUS_H = forcesVector(q, X_PLUS_H.col(i).adjoint(), time);
     Eigen::VectorXd F_X_MINUS_H = forcesVector(q, X_MINUS_H.col(i).adjoint(), time);
+
+//    std::future<Eigen::VectorXd> F_X_PLUS_H_mt = std::async(std::launch::async,forcesVector,q, X_PLUS_H.col(i).adjoint(), time);
+//    Eigen::VectorXd F_X_MINUS_H = forcesVector(q, X_MINUS_H.col(i).adjoint(), time);
+//    Eigen::VectorXd F_X_PLUS_H = F_X_PLUS_H_mt.get();
 
 //    Eigen::VectorXd F_X = F_X_PLUS_H-F_X_MINUS_H;
     jacobian.col(i) = F_X_PLUS_H - F_X_MINUS_H;
     
   }
-
-//  Eigen::MatrixXd eps_vec = 2*eps*Eigen::MatrixXd::Ones(nDoF,1).adjoint();
-//  Eigen::MatrixXd div = eps_vec.replicate(nDoF,1);
-//  Eigen::MatrixXd D = jacobian.cwiseQuotient(div);
-  
   auto D = jacobian / (2 * eps);
   
   return D;
+}
+
+Eigen::VectorXd Integrators::calculate_deltaQ(const Eigen::MatrixXd& s, const Eigen::VectorXd& residual)
+{
+  Eigen::VectorXd deltaQ = s.colPivHouseholderQr().solve(-residual);
+  return deltaQ;
 }
 

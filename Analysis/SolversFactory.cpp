@@ -31,22 +31,19 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   // ------------------------------------------------------------------------------------
   
   
-  
   // Vector of initial guesses for the steady-state solver.
-  Eigen::VectorXd q0(7);
-  q0(0) = 0;
-  q0(1) = 0;
-  q0(2) = 0;
-  q0(3) = 0;
-  q0(4) = 0;
-  q0(5) = 0;
-  q0(6) = 0;
+  Eigen::VectorXd q0 = Eigen::MatrixXd::Zero(7,1);
+//  q0(0) = 0;
+//  q0(1) = 0;
+//  q0(2) = 0;
+//  q0(3) = 0;
+//  q0(4) = 0;
+//  q0(5) = 0;
+//  q0(6) = 0;
   
-  Eigen::VectorXd qDot0(7);
-  auto vx0 = 150/3.6;
+  Eigen::VectorXd qDot0 = Eigen::MatrixXd::Zero(7,1);
+  double vx0 = 150/3.6;
   qDot0(0) = vx0;
-  qDot0(1) = 0;
-  qDot0(2) = 0;
   qDot0(3) = vx0/0.330;
   qDot0(4) = vx0/0.330;
   qDot0(5) = vx0/0.330;
@@ -60,7 +57,7 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   
   // Construct the mass matrix to pass to the numerical integrator
   Eigen::MatrixXd massMatrix = vehicle->get_mass_matrix();
-  
+
   auto forcesLambda = [&input, &vehicle](const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot,
       const double time) {
@@ -85,7 +82,7 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   
   // Create an object of TimeDomainSolution:
   
-  auto solution = std::make_shared<TimeDomainSolution>(time, q, qDot, qDDot, vehicle, input);
+  auto solution = std::make_shared<TimeDomainSolution>(std::move(time), std::move(q), std::move(qDot), std::move(qDDot), vehicle, input );
   
   return solution;
 }

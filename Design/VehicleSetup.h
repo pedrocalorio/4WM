@@ -57,15 +57,7 @@ public:
       const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot);
 
-  Eigen::MatrixXd get_stiffness_matrix(const std::shared_ptr<SimulationInput>& input,
-      const double time,
-      const Eigen::VectorXd& q,
-      const Eigen::VectorXd& qDot);
-  
-  Eigen::MatrixXd get_damping_matrix(const std::shared_ptr<SimulationInput>& input,
-      const double time,
-      const Eigen::VectorXd& q,
-      const Eigen::VectorXd& qDot);
+
   
   
   

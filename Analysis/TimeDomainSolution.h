@@ -53,14 +53,14 @@ public:
   
   // ====================== CONSTRUCTOR AND DESTRUCTOR ======================== //
   
-  TimeDomainSolution(Eigen::VectorXd time,
-      Eigen::MatrixXd q,
-      Eigen::MatrixXd qDot,
-      Eigen::MatrixXd qdDot,
+  TimeDomainSolution(const Eigen::VectorXd& time,
+      const Eigen::MatrixXd& q,
+      const Eigen::MatrixXd& qDot,
+      const Eigen::MatrixXd& qdDot,
       const std::shared_ptr<VehicleSetup>& vehicle,
       const std::shared_ptr<SimulationInput>& input)
       :m_Time(std::move(time)), m_Q(std::move(q)), m_QDot(std::move(qDot)), m_QDDot(std::move(qdDot)),
-       m_Vehicle(vehicle), m_Input(input) { }
+       m_Vehicle(std::move(vehicle)), m_Input(std::move(input)) { }
   
   ~TimeDomainSolution() = default;
   

@@ -3,6 +3,7 @@
 #include "Eigen/Dense"
 #include "../Inputs/SimulationInput.h"
 #include <cmath>
+#include "thread"
 
 class Integrators {
 public:

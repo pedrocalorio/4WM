@@ -58,7 +58,7 @@ Eigen::VectorXd VehicleSetup::get_forces_and_moments_vector(const std::shared_pt
   
 //  auto Iw1 = _tire1->get_inertia_();
   
-  // local variables for the simulation inputs
+// local variables for the simulation inputs
 //  std::shared_ptr<SteeringInput> steering_input            = input->get_delta_();
 //  std::shared_ptr<LongitudinalControlInput> tau_input      = input->get_longitudinal_control_input_();
 
@@ -94,7 +94,7 @@ Eigen::VectorXd VehicleSetup::get_forces_and_moments_vector(const std::shared_pt
   _tire2->get_tire_forces(alpha2,kappa2,fx2,fy2);
   _tire3->get_tire_forces(alpha3,kappa3,fx3,fy3);
   _tire4->get_tire_forces(alpha4,kappa4,fx4,fy4);
-  
+ 
   double dragForce{};
   dragForce = _aerodynamics->get_drag_force(vx);
   

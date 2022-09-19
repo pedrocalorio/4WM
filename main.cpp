@@ -49,6 +49,7 @@ int main()
   Eigen::VectorXd _brakesData = DataStream::read_csv_column_data(tr_brakes,ColumnNumber::column_two);
   
   auto input_steering = SimulationFactory::create_custom_steering(_timeData,_steerData);
+//  auto input_steering = SimulationFactory::create_step_input(1,2/57.3);
   auto input_tau = SimulationFactory::create_tau_input(_timeData,_tpsData,_brakesData);
   
   auto input = SimulationFactory::create_simulation_input(input_steering,input_tau);
@@ -80,3 +81,4 @@ int main()
   output.close();
   
 }
+

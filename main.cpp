@@ -19,6 +19,15 @@
 #include <chrono>
 #include <thread> // sleep_for, for testing only
 
+struct pseudo_mass{
+  double mass;
+  double inertia;
+  double cg;
+  double wd;
+  
+  pseudo_mass(double mass, double inertia, double cg, double wd)
+      :mass(mass), inertia(inertia), cg(cg), wd(wd) { }
+};
 
 int main()
 {
@@ -33,7 +42,7 @@ int main()
   auto tire_front = VehicleFactory::create_tire(3, 0.330, 8e3, 4e3);
   auto tire_rear = VehicleFactory::create_tire(3, 0.330, 10e3, 5e3);
   auto brake = VehicleFactory::create_brake(0.70,5e3);
-  auto engine = VehicleFactory::create_engine(450,3.7700,0); // power in hp
+  auto engine = VehicleFactory::create_engine(450,2.1,0); // power in hp
   
   // create a vehicle setup
   auto vehicle_setup = VehicleFactory::create_vehicle_setup(chassis,aero,tire_front,tire_front,tire_rear,tire_rear,brake,engine);
@@ -66,11 +75,11 @@ int main()
   
   // get the outputs
   
-  auto yawrate= sol->get_channel_signal(SimulationChannel::yaw_velocity);
+  auto yawrate= sol->get_channel_signal(SimulationChannel::longitudinal_velocity);
   auto time= sol->get_channel_signal(SimulationChannel::time);
   
   std::ofstream output;
-  output.open("C:/Users/PedroCalorio/CLionProjects/4WM/test.csv");
+  output.open("C:/Users/PedroCalorio/CLionProjects/4WM/test_speed.csv");
   
   output << "t (s)" << "," << "r (rad/s)" << "\n";
   

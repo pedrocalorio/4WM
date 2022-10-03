@@ -42,6 +42,7 @@ Eigen::VectorXd VehicleSetup::get_forces_and_moments_vector(const std::shared_pt
   double omega2 = qDot(4);
   double omega3 = qDot(5);
   double omega4 = qDot(6);
+
   
   // local variables of the vehicle parameters
   double m = _chassis->get_mass_();
@@ -50,7 +51,7 @@ Eigen::VectorXd VehicleSetup::get_forces_and_moments_vector(const std::shared_pt
   double frontTrack = _chassis->get_front_track_();
   double rearTrack = _chassis->get_rear_track_();
   double steering_ratio = 13.71;
-  
+
   double Rl1 = _tire1->get_loaded_radius_();
   double Rl2 = _tire2->get_loaded_radius_();
   double Rl3 = _tire3->get_loaded_radius_();
@@ -68,7 +69,7 @@ Eigen::VectorXd VehicleSetup::get_forces_and_moments_vector(const std::shared_pt
   double tauNeg = -input->longitudinal_control_input->get_negative_tau_value(time)/132.9260;
   
   
-  double vsy1 = (cos(delta)*(r*a+vy) - sin(delta)*(r*frontTrack/2 + vx));
+  double vsy1 = (cos(delta)*(r*a+vy) - sin(delta)*(r*_chassis->get_front_track_()/2 + vx));
   double vsy2 = (sin(delta)*(r*frontTrack/2-vx) + cos(delta)*(r*a + vy));
   double vsy3 = vy - r*b;
   double vsy4 = vy - r*b;

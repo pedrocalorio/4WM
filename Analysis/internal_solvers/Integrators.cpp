@@ -13,8 +13,6 @@ void Integrators::newmark_solve(
     const double errorTol)
 {
   
-  Eigen::initParallel();
-  
   // ------------------------------------------------------------------------------------
   // Newmark - beta parameters-----------------------------------------------------------
   // ------------------------------------------------------------------------------------
@@ -120,7 +118,7 @@ void Integrators::newmark_solve(
   // Error
   double error{100};
   
-  // integration step number
+  // Integration step number
   Eigen::Index n = 0;
   Eigen::Index nPlusOne = 0;
   
@@ -129,8 +127,7 @@ void Integrators::newmark_solve(
   
   while (true) {
 
-//    nPlusOne = n + static_cast<long long>(1);
-    nPlusOne = n + 1;
+    nPlusOne = n + static_cast<long long>(1);
     
     // Here, we check the size of the vectors to make sure we are not
     // running out of memory. Note that "conservativeResize" is an
@@ -149,12 +146,7 @@ void Integrators::newmark_solve(
     
     // this condition adjusts the final step size so that the
     // the final element of the time vector is the user specified stop time.
-    
-    //if (time(n) + h > stopTime) {
-    //  h                   = abs(stopTime - time(n));
-    //  allowStepSizeGrowth = false;
-    //}
-    
+
     // Time incrementation
     time(nPlusOne) = time(n) + stepSize;
     
@@ -167,16 +159,20 @@ void Integrators::newmark_solve(
     q.row(nPlusOne) = q.row(n) + stepSize * qDot.row(n) + (0.5 - beta) * stepSize * stepSize * qDDot.row(n);
     
     // we use .row because it corresponds to each time instant
+    
+    // calling the function to calculate the stiffness matrix with numerical differentiation in a separate thread
+    std::future<Eigen::MatrixXd> stiffness_matrix_mt = std::async(std::launch::async,get_stiffness_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
   
-    std::future<Eigen::MatrixXd> Kt_mt = std::async(std::launch::async,get_stiffness_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
-  
-    std::future<Eigen::VectorXd> Fmv_mt = std::async(std::launch::async,forcesVector,q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
-  
-    Eigen::MatrixXd Ct = get_damping_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
-  
-    Eigen::MatrixXd Kt = Kt_mt.get();
-  
-    Eigen::VectorXd Fmv = Fmv_mt.get();
+    // calling the function to calculate the damping matrix with numerical differentiation in a separate thread
+    std::future<Eigen::MatrixXd> damping_matrix_mt = std::async(std::launch::async,get_damping_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
+    
+    // calling the function to calculate the forces and moments vector in time step 'n+1' in a separate thread
+    std::future<Eigen::VectorXd> forces_moments_vector_mt = std::async(std::launch::async,forcesVector,q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
+    
+    //calling the function to get the matrices and vectors from std::async
+    Eigen::MatrixXd damping_matrix        = damping_matrix_mt.get();
+    Eigen::MatrixXd stiffness_matrix      = stiffness_matrix_mt.get();
+    Eigen::VectorXd forces_moments_vector = forces_moments_vector_mt.get();
     
     // ------------------------------------------------------------------------------------
     // Correction with Newton-raphson -----------------------------------------------------
@@ -189,10 +185,8 @@ void Integrators::newmark_solve(
       k += 1;
       
       // Residual Vector Evaluation Mq'' + f(q',q,t) = 0
-//      residual = massMatrix * qDDot.row(nPlusOne).transpose() +
-//          forcesVector(q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
       residual = massMatrix * qDDot.row(nPlusOne).transpose() +
-          Fmv;
+          forces_moments_vector;
       
       // Convergence Check
       if (residual.lpNorm<2>() < newtonTol || k > newtonMaxIterations) {
@@ -200,20 +194,15 @@ void Integrators::newmark_solve(
       }
       
       // Calculation of the Jacobian matrix
-//      s = get_stiffness_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
-//          gamma / (beta * stepSize)
-//              * get_damping_matrix(input, time(nPlusOne), q.row(nPlusOne), qDot.row(nPlusOne), forcesVector) +
-//          (1 / (beta * stepSize * stepSize)) * massMatrix;
   
-      s = Kt +
+      s = stiffness_matrix +
           gamma / (beta * stepSize)
-              * Ct +
+              * damping_matrix +
           (1 / (beta * stepSize * stepSize)) * massMatrix;
       
       // Calculate Newton Search Direction
       deltaQ = calculate_deltaQ(s,residual);
-      
-//      deltaQ = s.colPivHouseholderQr().solve(-residual);
+
       // There are no requirements on s matrix for colPivHouseholder to solve this with this method.
       
       // ------------------------------------------------------------------------------------
@@ -235,7 +224,6 @@ void Integrators::newmark_solve(
     // Local integration error-------------------------------------------------------------
     // ------------------------------------------------------------------------------------
 
-//    delta = (beta - 1.0 / 6.0) * stepSize * stepSize * x.transpose();
     delta = (beta - 1.0 / 6.0) * stepSize * stepSize * x;
     
     // Normalization Factor
@@ -340,25 +328,23 @@ Eigen::MatrixXd Integrators::get_stiffness_matrix(const std::shared_ptr<Simulati
   // defines the value of epsilon for numerically calculating the gradients
   double eps = 1e-5;
   
+  // calculates the disturbance identity matrix
   Eigen::MatrixXd hDoF = eps * Eigen::MatrixXd::Identity(nDoF, nDoF);
   
   Eigen::MatrixXd qRepMat = q.replicate(1, nDoF);
   
+  // calculates the disturbance matrix around the point of the current generalized coordinate
   Eigen::MatrixXd X_PLUS_H = qRepMat.array() + hDoF.array();
   Eigen::MatrixXd X_MINUS_H = qRepMat.array() - hDoF.array();
   
   Eigen::MatrixXd jacobian = Eigen::MatrixXd(nDoF, nDoF);
   
+  // loop to calculate each element of the jacobian matrix
   for (int i = 0; i < nDoF; ++i) {
     
     Eigen::VectorXd F_X_PLUS_H = forcesVector(X_PLUS_H.col(i).adjoint(), qDot, time);
     Eigen::VectorXd F_X_MINUS_H = forcesVector(X_MINUS_H.col(i).adjoint(), qDot, time);
-  
-//    std::future<Eigen::VectorXd> F_X_PLUS_H_mt = std::async(std::launch::async,forcesVector,X_PLUS_H.col(i).adjoint(), qDot, time);
-//    Eigen::VectorXd F_X_MINUS_H = forcesVector(X_MINUS_H.col(i).adjoint(), qDot, time);
-//    Eigen::VectorXd F_X_PLUS_H = F_X_PLUS_H_mt.get();
-
-//    Eigen::VectorXd F_X = F_X_PLUS_H-F_X_MINUS_H;
+    
     jacobian.col(i) = F_X_PLUS_H - F_X_MINUS_H;
   }
   
@@ -377,25 +363,23 @@ Eigen::MatrixXd Integrators::get_damping_matrix(const std::shared_ptr<Simulation
   // defines the value of epsilon for numerically calculating the gradients
   double eps = 1e-5;
   
+  // calculates the disturbance identity matrix
   Eigen::MatrixXd hDoF = eps * Eigen::MatrixXd::Identity(nDoF, nDoF);
   
   Eigen::MatrixXd qDotRepMat = qDot.replicate(1, nDoF);
   
+  // calculates the disturbance matrix around the point of the current generalized velocity
   Eigen::MatrixXd X_PLUS_H = qDotRepMat.array() + hDoF.array();
   Eigen::MatrixXd X_MINUS_H = qDotRepMat.array() - hDoF.array();
   
   Eigen::MatrixXd jacobian = Eigen::MatrixXd(nDoF, nDoF);
   
+  // loop to calculate each element of the jacobian matrix
   for (int i = 0; i < nDoF; ++i) {
     
     Eigen::VectorXd F_X_PLUS_H = forcesVector(q, X_PLUS_H.col(i).adjoint(), time);
     Eigen::VectorXd F_X_MINUS_H = forcesVector(q, X_MINUS_H.col(i).adjoint(), time);
-
-//    std::future<Eigen::VectorXd> F_X_PLUS_H_mt = std::async(std::launch::async,forcesVector,q, X_PLUS_H.col(i).adjoint(), time);
-//    Eigen::VectorXd F_X_MINUS_H = forcesVector(q, X_MINUS_H.col(i).adjoint(), time);
-//    Eigen::VectorXd F_X_PLUS_H = F_X_PLUS_H_mt.get();
-
-//    Eigen::VectorXd F_X = F_X_PLUS_H-F_X_MINUS_H;
+    
     jacobian.col(i) = F_X_PLUS_H - F_X_MINUS_H;
     
   }

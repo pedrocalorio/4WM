@@ -3,7 +3,6 @@
 void Integrators::newmark_solve(
     const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector,
     const Eigen::MatrixXd& massMatrix,
-    const std::shared_ptr<SimulationInput>& input,
     Eigen::MatrixXd& q,
     Eigen::MatrixXd& qDot,
     Eigen::MatrixXd& qDDot,
@@ -161,10 +160,10 @@ void Integrators::newmark_solve(
     // we use .row because it corresponds to each time instant
     
     // calling the function to calculate the stiffness matrix with numerical differentiation in a separate thread
-    std::future<Eigen::MatrixXd> stiffness_matrix_mt = std::async(std::launch::async,get_stiffness_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
+    std::future<Eigen::MatrixXd> stiffness_matrix_mt = std::async(std::launch::async,get_stiffness_matrix,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
   
     // calling the function to calculate the damping matrix with numerical differentiation in a separate thread
-    std::future<Eigen::MatrixXd> damping_matrix_mt = std::async(std::launch::async,get_damping_matrix,input,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
+    std::future<Eigen::MatrixXd> damping_matrix_mt = std::async(std::launch::async,get_damping_matrix,time(nPlusOne),q.row(nPlusOne), qDot.row(nPlusOne), forcesVector);
     
     // calling the function to calculate the forces and moments vector in time step 'n+1' in a separate thread
     std::future<Eigen::VectorXd> forces_moments_vector_mt = std::async(std::launch::async,forcesVector,q.row(nPlusOne), qDot.row(nPlusOne), time(nPlusOne));
@@ -318,7 +317,7 @@ void Integrators::newmark_solve(
   }
 }
 
-Eigen::MatrixXd Integrators::get_stiffness_matrix(const std::shared_ptr<SimulationInput>& input, const double time,
+Eigen::MatrixXd Integrators::get_stiffness_matrix(const double time,
     const Eigen::VectorXd& q, const Eigen::VectorXd& qDot,
     const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector)
 {
@@ -353,7 +352,7 @@ Eigen::MatrixXd Integrators::get_stiffness_matrix(const std::shared_ptr<Simulati
   return K;
 }
 
-Eigen::MatrixXd Integrators::get_damping_matrix(const std::shared_ptr<SimulationInput>& input, const double time,
+Eigen::MatrixXd Integrators::get_damping_matrix(const double time,
     const Eigen::VectorXd& q, const Eigen::VectorXd& qDot,
     const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector)
 {

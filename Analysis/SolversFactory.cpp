@@ -74,7 +74,7 @@ std::shared_ptr<TimeDomainSolution> SolversFactory::solve_single_time_domain_sim
   
   time(0) = solverSettings->m_StartTime;
   
-  Integrators::newmark_solve(forcesLambda, massMatrix, input,
+  Integrators::newmark_solve(forcesLambda, massMatrix,
       q, qDot, qDDot, time,
       solverSettings->m_EndTime,
       solverSettings->m_TransientSolverMaxStepSize,

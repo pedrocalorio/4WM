@@ -17,7 +17,6 @@ public:
   // INPUTS:
   // - forcesVector : the vector of the forces and moments for that given equations of motion
   // - massMatrix   : mass matrix of that given system of differential equations, it is assumed to be constant
-  // - input        : Simulation Input object that holds lateral and longitudinal inputs as member variables to calculate delta and wheel torques which are inputs of the solve_equation() function
   // - stopTime     : time in which the integration is no longer going to progress
   // - maxStepSize  : the maximum deltaT that the integration allows
   // - errorTol     : error tolerance for the variable step size adjustment
@@ -30,7 +29,6 @@ public:
   static void newmark_solve(
       const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector,
       const Eigen::MatrixXd& massMatrix,
-      const std::shared_ptr<SimulationInput>& input,
       Eigen::MatrixXd& q,
       Eigen::MatrixXd& qDot,
       Eigen::MatrixXd& qDDot,
@@ -41,16 +39,14 @@ public:
   
   // Internal function to calculate the stiffness matrix which is the jacobian of the forces and moments vector wrt to the generalized coordinates
   // This function is internally used by newmark_solve()
-  static Eigen::MatrixXd get_stiffness_matrix(const std::shared_ptr<SimulationInput>& input,
-      const double time,
+  static Eigen::MatrixXd get_stiffness_matrix(const double time,
       const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot,
       const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector);
   
   // Internal function to calculate the damping matrix which is the jacobian of the forces and moments vector wrt to the generalized velocities
   // This function is internally used by newmark_solve()
-  static Eigen::MatrixXd get_damping_matrix(const std::shared_ptr<SimulationInput>& input,
-      const double time,
+  static Eigen::MatrixXd get_damping_matrix(const double time,
       const Eigen::VectorXd& q,
       const Eigen::VectorXd& qDot,
       const std::function<Eigen::VectorXd(const Eigen::VectorXd&, const Eigen::VectorXd&, double)>& forcesVector);

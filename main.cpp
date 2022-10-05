@@ -75,11 +75,11 @@ int main()
   
   // get the outputs
   
-  auto yawrate= sol->get_channel_signal(SimulationChannel::longitudinal_velocity);
+  auto yawrate= sol->get_channel_signal(SimulationChannel::yaw_velocity);
   auto time= sol->get_channel_signal(SimulationChannel::time);
   
   std::ofstream output;
-  output.open("C:/Users/PedroCalorio/CLionProjects/4WM/test_speed.csv");
+  output.open("C:/Users/PedroCalorio/CLionProjects/4WM/yawrate.csv");
   
   output << "t (s)" << "," << "r (rad/s)" << "\n";
   
